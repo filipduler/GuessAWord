@@ -23,15 +23,21 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let mut challenger = Client::connect_async("127.0.0.1:8080".parse().unwrap(), PASSWORD).await.unwrap();
-
         let mut opponent = Client::connect_async("127.0.0.1:8080".parse().unwrap(), PASSWORD).await.unwrap();
 
+        let _client1 = Client::connect_async("127.0.0.1:8080".parse().unwrap(), PASSWORD).await.unwrap();
+        let _client2 = Client::connect_async("127.0.0.1:8080".parse().unwrap(), PASSWORD).await.unwrap();
+        let _client3 = Client::connect_async("127.0.0.1:8080".parse().unwrap(), PASSWORD).await.unwrap();
+
+        // wait for client processing
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         let opponents = challenger.get_opponents_async().await.unwrap();
-        assert_eq!(opponents.len(), 1);
+        assert_eq!(opponents.len(), 4);
 
         // challenger first opponent
         let word = "test";
-        challenger.request_match_async(opponents[0], word).await.unwrap();
+        challenger.request_match_async(opponent.id, word).await.unwrap();
 
         // opponent should receive a challenged message
         assert_eq!(Some(StreamedMessage::Challenged), opponent.read_streamed_message_async().await.unwrap());

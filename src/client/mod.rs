@@ -15,7 +15,7 @@ pub use message::ClientMessage;
 use crate::server::ServerMessage;
 
 pub struct Client {
-    id: ClientId,
+    pub id: ClientId,
     stream: Framed<TcpStream, LengthDelimitedCodec>,
     bin_writer: BinWriter
 }
