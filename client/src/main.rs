@@ -1,5 +1,8 @@
 use std::{env, io};
+use std::sync::Arc;
+use anyhow::bail;
 use library::{Client, ClientId, StreamedMessage};
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,8 +24,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if input == "1" {
-
-        }
+        process_challenger_flow_async(client).await?;
+    } else if input == "2" {
+        process_opponent_flow_async(client).await?;
     } else {
         println!("Invalid input.");
     }
@@ -31,9 +35,62 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn process_challenger_flow_async(client: &mut Client) -> anyhow::Result<()> {
+async fn process_opponent_flow_async(client: Client) -> anyhow::Result<()> {
+
+    let client_mut = Arc::new(Mutex::new(client));
+
+    loop {
+        if let Some(msg) = client_mut.lock().await.read_streamed_message_async().await
+            .expect("Couldn't read streamed message") {
+            match msg {
+                StreamedMessage::Challenged => {
+                    println!("You have been challenged!");
+                    break;
+                }
+                _ => bail!("Unexpected message"),
+            }
+        }
+    }
+
+    let client_mut_clone = client_mut.clone();
+    tokio::spawn(async move {
+        loop {
+            if let Some(msg) = client_mut_clone.lock().await.read_streamed_message_async().await
+                .expect("Couldn't read streamed message") {
+                match msg {
+                    StreamedMessage::Hint(hint) => {
+                        println!("Your challenger sent you a hint: {}", hint);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
+
+
+    println!("Enter an attempt:");
+    loop {
+        let mut attempt_input = String::new();
+        io::stdin().read_line(&mut attempt_input)?;
+        let attempt = attempt_input.trim();
+
+        let success = client_mut.lock().await.send_attempt_async(attempt).await?;
+        if success {
+            println!("You guessed the word!");
+            break;
+        } else {
+            println!("Sadly not the correct word. Try again:");
+        }
+    }
+
+    Ok(())
+}
+
+async fn process_challenger_flow_async(client: Client) -> anyhow::Result<()> {
+    let client_mut = Arc::new(Mutex::new(client));
+
     println!("Available Opponents:");
-    let opponents = client.get_opponents_async().await?;
+    let opponents = client_mut.lock().await.get_opponents_async().await?;
 
     if opponents.is_empty() {
         println!("No Opponents found.");
@@ -56,25 +113,45 @@ async fn process_challenger_flow_async(client: &mut Client) -> anyhow::Result<()
             io::stdin().read_line(&mut word_input)?;
             let word_input = word_input.trim();
 
-            client.request_match_async(id, word_input).await?;
+            client_mut.lock().await.request_match_async(id, word_input).await?;
+
             println!("You have challenged an opponent with ID: {}", id);
 
-            loop {
-                if let Some(msg) = client.read_streamed_message_async().await? {
-                    match msg {
-                        StreamedMessage::Attempt(valid, word) => {
-                            if valid {
-                                println!("Opponent guessed the word!");
-                                break;
-                            } else {
-                                println!("Opponent attempted to guess with the word '{}'", word);
+            // read attempts
+            let client_mut_clone = client_mut.clone();
+            tokio::spawn(async move {
+                loop {
+                    if let Some(msg) = client_mut_clone.lock().await.read_streamed_message_async().await
+                            .expect("Couldn't read streamed message") {
+                        match msg {
+                            StreamedMessage::Attempt(valid, word) => {
+                                if valid {
+                                    println!("Opponent guessed the word!");
+                                    break;
+                                } else {
+                                    println!("Opponent attempted to guess with the word '{}'", word);
+                                }
                             }
+                            _ => {}
                         }
                     }
                 }
+            });
+
+            loop {
+                println!("Enter a hint:");
+                let mut hint_input = String::new();
+                io::stdin().read_line(&mut hint_input)?;
+                let hint_input = word_input.trim();
+
+                client_mut.lock().await.send_hint_async(hint_input).await?;
+                println!("Hint '{}' sent.", hint_input);
             }
         }
         _ => {
             println!("Invalid opponent ID");
         }
+    }
+
+    Ok(())
 }

@@ -158,7 +158,7 @@ impl Client {
                 })
             }
             Err(_) => {
-                eprintln!("Read timed out");
+                // read timed out
             }
         }
 
