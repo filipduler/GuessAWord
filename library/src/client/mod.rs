@@ -60,7 +60,7 @@ impl Client {
     }
 
 
-    pub async fn get_opponents_async(&mut self) -> anyhow::Result<Vec<u32>> {
+    pub async fn get_opponents_async(&mut self) -> anyhow::Result<Vec<ClientId>> {
         self.bin_writer.clear();
 
         // send request

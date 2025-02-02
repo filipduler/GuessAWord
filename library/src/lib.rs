@@ -4,6 +4,9 @@ mod utils;
 mod bin_writer;
 mod bin_reader;
 
+pub use server::run_async;
+pub use client::{Client, StreamedMessage};
+pub use utils::ClientId;
 
 #[cfg(test)]
 mod tests {
