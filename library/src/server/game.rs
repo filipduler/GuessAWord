@@ -105,7 +105,7 @@ impl Game {
             }
             player.state = PlayerState::InMatch;
         } else {
-            bail!("Player {} not foun.", id);
+            bail!("Player {} not found.", id);
         }
 
         Ok(())
