@@ -1,9 +1,0 @@
-[package]
-name = "server"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-library = { path = "../library" }
-tokio = "1.43.0"
-anyhow = "1.0.95"
